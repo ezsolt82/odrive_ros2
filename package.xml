@@ -1,28 +1,21 @@
 <?xml version="1.0"?>
-<package format="2">
-  <name>odrive_ros</name>
-  <version>0.8.1</version>
-  <description>ODrive motor controller driver for ROS</description>
-  <license>Modified BSD</license>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>odrive_ros2</name>
+  <version>0.0.0</version>
+  <description>A ROS2 driver for ODrive </description>
+  <maintainer email="i@zsoltegri.com">ezsolt</maintainer>
+  <license>Apache-2.0</license>
 
-  <maintainer email="josh.marshall@tecevo.com">Josh Marshall, Tecevo</maintainer>
-  <url type="website">https://github.com/neomanic/odrive_ros</url>
-
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>rospy</build_depend>
-  <build_export_depend>rospy</build_export_depend>
-
-  <exec_depend>rospy</exec_depend>
+  <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>std_srvs</exec_depend>
-  <exec_depend>diagnostic_msgs</exec_depend>
-  <exec_depend>diagnostic_updater</exec_depend>
-  
-  <exec_depend>ODrive</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
-    <!-- Other tools can request additional information be placed here -->
+    <build_type>ament_python</build_type>
   </export>
 </package>
