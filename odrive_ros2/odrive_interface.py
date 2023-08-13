@@ -226,9 +226,9 @@ class ODriveInterfaceAPI(object):
 
         #self.logger.debug("Setting drive mode.")
         for axis in self.axes:
-            axis.controller.vel_setpoint = 0
+            axis.controller.input_vel = 0
             axis.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-            axis.controller.config.control_mode = CTRL_MODE_VELOCITY_CONTROL
+            axis.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
 
         #self.engaged = True
         return True
@@ -249,8 +249,8 @@ class ODriveInterfaceAPI(object):
             self.logger.error("Not connected.")
             return
         #try:
-        self.left_axis.controller.vel_setpoint = -left_motor_val
-        self.right_axis.controller.vel_setpoint = right_motor_val
+        self.left_axis.controller.input_vel = -left_motor_val
+        self.right_axis.controller.input_vel = right_motor_val
         #except (fibre.protocol.ChannelBrokenException, AttributeError) as e:
         #    raise ODriveFailure(str(e))
 

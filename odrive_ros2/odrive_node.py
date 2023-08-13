@@ -59,9 +59,14 @@ class OdriveNode(Node):
         self.controller = OdriveRos2(self)
         self.driver = ODriveInterfaceAPI(logger = self.get_logger())
         self.driver.connect()
+        self.driver.engage()
+        self.driver.drive(0.5,0.5)
+        self.driver.release()
+
         print('Odrive ROS2 driver initialized')
 
     def shutdown(self):
+        self.driver.release()
         self.driver.disconnect()
         self.controller.shutdown()
 
