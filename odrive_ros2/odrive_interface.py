@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 import logging
-import sys
 import time
 import traceback
 
-import fibre
 import odrive
-import serial
-from fibre import ChannelBrokenException, ChannelDamagedException
 from odrive.enums import *
-from serial.serialutil import SerialException
 
 default_logger = logging.getLogger(__name__)
 default_logger.setLevel(logging.DEBUG)
@@ -54,11 +49,11 @@ class ODriveInterfaceAPI(object):
         # provided so simulator can update position
         pass
 
-    def connect(self, port=None, right_axis=0, timeout=30):
+    def connect(self, port=None, right_axis=0, timeout=3000):
         if self.driver:
             self.logger.info("Already connected. Disconnecting and reconnecting.")
         try:
-            self.driver = odrive.find_any(timeout=timeout, logger=self.logger)
+            self.driver = odrive.find_any() # timeout=timeout, logger=self.logger
             self.axes = (self.driver.axis0, self.driver.axis1)
         except:
             self.logger.error("No ODrive found. Is device powered?")
@@ -92,13 +87,13 @@ class ODriveInterfaceAPI(object):
         self.left_axis = None
 
         #self.engaged = False
-
         if not self.driver:
             self.logger.error("Not connected.")
             return False
 
         try:
             self.release()
+            self.logger.info("Odrive disconnected.")
         except:
             self.logger.error("Error in timer: " + traceback.format_exc())
             return False
@@ -109,12 +104,11 @@ class ODriveInterfaceAPI(object):
     def get_version_string(self):
         if not self.driver or not self.connected:
             return "Not connected."
-        return "ODrive %s, hw v%d.%d-%d, fw v%d.%d.%d%s, sdk v%s" % (
+        return "ODrive %s, hw v%d.%d-%d, fw v%d.%d.%d%s" % (
             str(self.driver.serial_number),
             self.driver.hw_version_major, self.driver.hw_version_minor, self.driver.hw_version_variant,
             self.driver.fw_version_major, self.driver.fw_version_minor, self.driver.fw_version_revision,
-            "-dev" if self.driver.fw_version_unreleased else "",
-            odrive.version.get_version_str())
+            "-dev" if self.driver.fw_version_unreleased else "")
 
 
     def reboot(self):
@@ -180,12 +174,6 @@ class ODriveInterfaceAPI(object):
             return True
         else:
             return False
-
-    # def prerolling(self):
-    #     return self.axes[0].current_state == AXIS_STATE_ENCODER_INDEX_SEARCH or self.axes[1].current_state == AXIS_STATE_ENCODER_INDEX_SEARCH
-    #
-    # def prerolled(self): #
-    #     return self._prerolled and not self.prerolling()
 
     def ensure_prerolled(self):
         # preroll success
