@@ -281,17 +281,17 @@ class ODriveInterfaceAPI(object):
         if axis_error:
             return error_string
 
-    def left_vel_estimate(self):  return self.left_axis.encoder.vel_estimate   if self.left_axis  else 0 # units: encoder counts/s
-    def right_vel_estimate(self): return self.right_axis.encoder.vel_estimate  if self.right_axis else 0 # neg is forward for right
-    def left_pos(self):           return self.left_axis.encoder.pos_cpr        if self.left_axis  else 0  # units: encoder counts
-    def right_pos(self):          return self.right_axis.encoder.pos_cpr       if self.right_axis else 0   # sign!
+    def left_vel_estimate(self):  return self.left_axis.encoder.vel_estimate       if self.left_axis  else 0 # units: encoder counts/s
+    def right_vel_estimate(self): return self.right_axis.encoder.vel_estimate      if self.right_axis else 0 # neg is forward for right
+    def left_pos(self):           return self.left_axis.encoder.pos_cpr_counts     if self.left_axis  else 0  # units: encoder counts
+    def right_pos(self):          return self.right_axis.encoder.pos_cpr_counts    if self.right_axis else 0   # sign!
 
     # TODO check these match the right motors, but it doesn't matter for now
-    def left_temperature(self):   return self.left_axis.motor.get_inverter_temp()  if self.left_axis  else 0.
-    def right_temperature(self):  return self.right_axis.motor.get_inverter_temp() if self.right_axis else 0.
+    def left_temperature(self):   return self.left_axis.motor.motor_thermistor.temperature  if self.left_axis  else 0.
+    def right_temperature(self):  return self.right_axis.motor.motor_thermistor.temperature if self.right_axis else 0.
 
-    def left_current(self):       return self.left_axis.motor.current_control.Ibus  if self.left_axis and self.left_axis.current_state > 1 else 0.
-    def right_current(self):      return self.right_axis.motor.current_control.Ibus if self.right_axis and self.right_axis.current_state > 1 else 0.
+    def left_current(self):       return self.left_axis.motor.current_control.power  if self.left_axis and self.left_axis.current_state > 1 else 0.
+    def right_current(self):      return self.right_axis.motor.current_control.power if self.right_axis and self.right_axis.current_state > 1 else 0.
 
     # from axis.hpp: https://github.com/madcowswe/ODrive/blob/767a2762f9b294b687d761029ef39e742bdf4539/Firmware/MotorControl/axis.hpp#L26
     MOTOR_STATES = [
