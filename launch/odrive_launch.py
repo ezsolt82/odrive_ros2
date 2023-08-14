@@ -10,7 +10,11 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True,
             parameters=[
-                {'simulation_mode': True}
+                {
+                    'simulation_mode': True,
+                    'wheel_track': 0.285,
+                    'tyre_circumference': 0.341
+                 }
             ]
         )
     ])
