@@ -17,3 +17,4 @@ odrv0.axis0.requested_state = AXIS_STATE_IDLE
 odrv0.save_configuration()
 odrv0.reboot()
 odrv0.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+odrv0.axis0.controller.input_vel = 0.3

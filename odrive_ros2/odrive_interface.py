@@ -209,13 +209,13 @@ class ODriveInterfaceAPI(object):
 
     def engaged(self):
         if self.driver and hasattr(self, 'axes'):
-            return self.axes[0].current_state == AXIS_STATE_CLOSED_LOOP_CONTROL and self.axes[1].current_state == AXIS_STATE_CLOSED_LOOP_CONTROL
+            return self.axes[0].requested_state == AXIS_STATE_CLOSED_LOOP_CONTROL and self.axes[1].requested_state == AXIS_STATE_CLOSED_LOOP_CONTROL
         else:
             return False
 
     def idle(self):
         if self.driver and hasattr(self, 'axes'):
-            return self.axes[0].current_state == AXIS_STATE_IDLE and self.axes[1].current_state == AXIS_STATE_IDLE
+            return self.axes[0].requested_state == AXIS_STATE_IDLE and self.axes[1].requested_state == AXIS_STATE_IDLE
         else:
             return False
 
@@ -281,7 +281,7 @@ class ODriveInterfaceAPI(object):
         if axis_error:
             return error_string
 
-    def left_vel_estimate(self):  return self.left_axis.encoder.vel_estimate       if self.left_axis  else 0 # units: encoder counts/s
+    def left_vel_estimate(self):  return self.left_axis.encoder.vel_estimate       if self.left_axis  else 0 # units: m/s
     def right_vel_estimate(self): return self.right_axis.encoder.vel_estimate      if self.right_axis else 0 # neg is forward for right
     def left_pos(self):           return self.left_axis.encoder.pos_cpr_counts     if self.left_axis  else 0  # units: encoder counts
     def right_pos(self):          return self.right_axis.encoder.pos_cpr_counts    if self.right_axis else 0   # sign!

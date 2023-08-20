@@ -3,7 +3,7 @@ from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float32, Int32
+from std_msgs.msg import Float64, Int32
 import math
 import tf2_ros
 from tf_transformations import quaternion_from_euler
@@ -14,6 +14,7 @@ class OdriveNode(Node):
 
     def __init__(self):
         super().__init__('odrive_node')
+        self.get_logger().info("Starting Odrive ROS2 driver.")
         #self.command_queue = Queue.Queue(maxsize=5)
 
         self.init_params()
@@ -21,19 +22,26 @@ class OdriveNode(Node):
         self.driver.connect()
         # Const to calculate from meter per sec to round per sec
         self.m_s_to_rps = 1/self.tyre_circumference
-        self.driver.engage()
+        self.engage_driver()
+
+        self.stopped_counter = 0
+        self.last_left_linear_val = 0
+        self.last_right_linear_val = 0
 
         self.timer_recalc_odom = self.create_timer(1/self.odom_calc_hz, self.fast_timer)
         self.timer_manage_hardware = self.create_timer(1, self.slow_timer)
         self.vel_subscriber = self.create_subscription(Twist, "/cmd_vel", self.cmd_vel_callback, 10)
-        self.raw_odom_publisher_encoder_left  = self.create_publisher(Float32, 'odrive/left/raw_odom/encoder'  , self.odom_calc_hz)
-        self.raw_odom_publisher_encoder_right = self.create_publisher(Float32, 'odrive/right/raw_odom/encoder' , self.odom_calc_hz)
-        self.raw_odom_publisher_vel_left      = self.create_publisher(Float32, 'odrive/left/raw_odom/velocity' , self.odom_calc_hz)
-        self.raw_odom_publisher_vel_right     = self.create_publisher(Float32, 'odrive/right/raw_odom/velocity', self.odom_calc_hz)
-        self.odom_publisher                   = self.create_publisher(Odometry, self.odom_topic         , self.odom_calc_hz)
+        self.raw_odom_publisher_encoder_left  = self.create_publisher(Float64, 'odrive/left/raw_odom/encoder'  , self.odom_calc_hz)
+        self.raw_odom_publisher_encoder_right = self.create_publisher(Float64, 'odrive/right/raw_odom/encoder' , self.odom_calc_hz)
+        self.raw_odom_publisher_vel_left      = self.create_publisher(Float64, 'odrive/left/raw_odom/velocity' , self.odom_calc_hz)
+        self.raw_odom_publisher_vel_right     = self.create_publisher(Float64, 'odrive/right/raw_odom/velocity', self.odom_calc_hz)
+        self.odom_publisher                   = self.create_publisher(Odometry, self.odom_topic                , self.odom_calc_hz)
+        self.current_publisher_left           = self.create_publisher(Float64, 'odrive/left/current'           , self.odom_calc_hz)
+        self.current_publisher_right          = self.create_publisher(Float64, 'odrive/right/current'          , self.odom_calc_hz)
+        self.i2t_publisher_left               = self.create_publisher(Float64, 'odrive/left/i2t'               , self.odom_calc_hz)
+        self.i2t_publisher_right              = self.create_publisher(Float64, 'odrive/right/i2t'              , self.odom_calc_hz)
 
-
-        print('Odrive ROS2 driver initialized')
+        self.get_logger().info("Odrive ROS2 driver initialized.")
 
     def init_params(self):
         self.declare_parameter('simulation_mode', False,
@@ -67,11 +75,11 @@ class OdriveNode(Node):
                                ParameterDescriptor(description='NOT YET IMPLEMENTED!'))
 
         self.declare_parameter('publish_odom', True,
-                               ParameterDescriptor(description='NOT YET IMPLEMENTED!'))
+                               ParameterDescriptor(description='If True, the node publishes odometry information to the specified odom_topic topic'))
         self.declare_parameter('publish_odom_tf', False,
                                ParameterDescriptor(description='NOT YET IMPLEMENTED!'))
-        self.declare_parameter('odom_topic', "odom",
-                               ParameterDescriptor(description='NOT YET IMPLEMENTED!'))
+        self.declare_parameter('odom_topic', "odrive/odom",
+                               ParameterDescriptor(description='The topic to publish estimated odometry information.'))
         self.declare_parameter('odom_frame', "odom",
                                ParameterDescriptor(description='NOT YET IMPLEMENTED!'))
         self.declare_parameter('base_frame', "base_link",
@@ -93,7 +101,7 @@ class OdriveNode(Node):
 
         self.has_preroll          = self.get_parameter('use_preroll').get_parameter_value().bool_value
 
-        self.publish_current      = self.get_parameter('publish_current').get_parameter_value().bool_value
+        self.publish_curr         = self.get_parameter('publish_current').get_parameter_value().bool_value
         self.publish_raw_odom     = self.get_parameter('publish_raw_odom').get_parameter_value().bool_value
 
         self.publish_odom         = self.get_parameter('publish_odom').get_parameter_value().bool_value
@@ -145,20 +153,34 @@ class OdriveNode(Node):
         self.y = 0.0
         self.theta = 0.0
 
+    def engage_driver(self):
+        self.driver.engage()
+        self.driver_engaged = True
+
+    def disengage_driver(self):
+        self.driver.release()
+        self.driver_engaged = False
 
     def cmd_vel_callback(self, msg):
         left_linear_val, right_linear_val = self.convert_linear_angular_to_l_r_linear(msg.linear.x, msg.angular.z)
-        print(f"Driving motors: Left: {left_linear_val:.2f} Right: {right_linear_val:.2f}")
+        #print(f"Driving motors: Left: {left_linear_val:.2f} Right: {right_linear_val:.2f}")
         # The driver gets the values as round per second.
+
+        if not self.driver_engaged:
+            self.engage_driver()
+
         self.driver.drive(left_linear_val, right_linear_val)
+        self.last_left_linear_val = left_linear_val
+        self.last_right_linear_val = right_linear_val
+
 
     def convert_linear_angular_to_l_r_linear(self, forward, ccw):
         angular_to_linear = ccw * (self.wheel_track/2.0)
-        print("angular_to_linear = ccw * (self.wheel_track/2.0)")
-        print(f"{angular_to_linear:.2f} = {ccw:.2f} * ({self.wheel_track:.2f} /2.0)")
+        #print("angular_to_linear = ccw * (self.wheel_track/2.0)")
+        #print(f"{angular_to_linear:.2f} = {ccw:.2f} * ({self.wheel_track:.2f} /2.0)")
         left_linear_val  = (forward - angular_to_linear) * self.m_s_to_rps
-        print("left_linear_val  = int((forward - angular_to_linear) * self.m_s_to_rps)")
-        print(f"{left_linear_val:.2f}  = int(( {forward:.2f} - {angular_to_linear:.2f}) * {self.m_s_to_rps:.2f})")
+        #print("left_linear_val  = int((forward - angular_to_linear) * self.m_s_to_rps)")
+        #print(f"{left_linear_val:.2f}  = int(( {forward:.2f} - {angular_to_linear:.2f}) * {self.m_s_to_rps:.2f})")
         right_linear_val = (forward + angular_to_linear) * self.m_s_to_rps
 
         return left_linear_val, right_linear_val
@@ -171,11 +193,37 @@ class OdriveNode(Node):
         self.driver.disconnect()
 
     def fast_timer(self):
+        """For hardware related tasks"""
+
+        self.driver.feed_watchdog()
         time_now = self.get_clock().now()
         self.update_odometry(time_now)
+        self.disengage_on_stop()
+        if self.publish_raw_odom:
+            self.publish_raw_odometry()
+
+        if self.publish_odom:
+            self.publish_odometry(time_now)
+
+        if self.publish_curr:
+            self.publish_current(time_now)
 
     def slow_timer(self):
+        """For logic like config changes"""
         pass
+
+    def disengage_on_stop(self):
+        if self.stopped_counter > 100:
+            return
+        if (self.last_left_linear_val == 0) and (self.last_right_linear_val == 0):
+            self.stopped_counter += 1
+        else:
+            self.stopped_counter = 0
+
+        if self.stopped_counter == 100:
+            self.disengage_driver()
+            self.get_logger().info("Motors disengaged.")
+
 
     def update_odometry(self, time_now):
         self.driver.update_time(time_now.nanoseconds/1e9)
@@ -196,33 +244,61 @@ class OdriveNode(Node):
         # voltage
         self.bus_voltage = self.driver.bus_voltage()
 
-        if self.publish_raw_odom:
-            self.publish_raw_odometry()
 
-        if self.publish_odom:
-            self.publish_odometry(time_now)
+    def publish_current(self, time_now):
+        self.current_publisher_left.publish( Float64(data=self.current_l))
+        self.current_publisher_right.publish(Float64(data=self.current_r))
+        return
+
+        now = time.time()
+
+        if not hasattr(self, 'last_pub_current_time'):
+            self.last_pub_current_time = now
+            self.left_energy_acc = 0
+            self.right_energy_acc = 0
+            return
+
+        # calculate and publish i2t
+        dt = now - self.last_pub_current_time
+
+        power = max(0, self.current_l**2 - self.i2t_current_nominal**2)
+        energy = power * dt
+        self.left_energy_acc *= 1 - self.i2t_update_rate * dt
+        self.left_energy_acc += energy
+
+        power = max(0, self.current_r**2 - self.i2t_current_nominal**2)
+        energy = power * dt
+        self.right_energy_acc *= 1 - self.i2t_update_rate * dt
+        self.right_energy_acc += energy
+
+        self.last_pub_current_time = now
+
+        self.i2t_publisher_left.publish(float(self.left_energy_acc))
+        self.i2t_publisher_right.publish(float(self.right_energy_acc))
+
+        # stop odrive if overheated
+        if self.left_energy_acc > self.i2t_error_threshold or self.right_energy_acc > self.i2t_error_threshold:
+            if not self.i2t_error_latch:
+                self.driver.release()
+                self.status = "overheated"
+                self.i2t_error_latch = True
+                rospy.logerr("ODrive has exceeded i2t error threshold, ignoring drive commands. Waiting to cool down.")
+        elif self.i2t_error_latch:
+            if self.left_energy_acc < self.i2t_resume_threshold and self.right_energy_acc < self.i2t_resume_threshold:
+                # have cooled enough now
+                self.status = "ready"
+                self.i2t_error_latch = False
+                rospy.logerr("ODrive has cooled below i2t resume threshold, ignoring drive commands. Waiting to cool down.")
+
 
 
     def publish_raw_odometry(self):
-        f = Float32()
-        f.data = self.new_pos_l
-        self.raw_odom_publisher_encoder_left.publish(f)
-
-        f = Float32()
-        f.data = self.new_pos_r
-        self.raw_odom_publisher_encoder_right.publish(f)
-
-        f = Float32()
-        f.data =  self.vel_l
-        self.raw_odom_publisher_vel_left.publish(f)
-
-        f = Float32()
-        f.data =  self.vel_r
-        self.raw_odom_publisher_vel_right.publish(f)
-        return
+        self.raw_odom_publisher_encoder_left.publish( Float64(data=self.new_pos_l))
+        self.raw_odom_publisher_encoder_right.publish(Float64(data=self.new_pos_r))
+        self.raw_odom_publisher_vel_left.publish(Float64(data=self.vel_l))
+        self.raw_odom_publisher_vel_right.publish(Float64(data=self.vel_r))
 
     def publish_odometry(self, time_now):
-        ## Old from here ##
         self.odom_msg.header.stamp = time_now.to_msg()
         self.tf_msg.header.stamp = time_now.to_msg()
 
@@ -230,8 +306,8 @@ class OdriveNode(Node):
         tyre_circumference = self.tyre_circumference
 
         # Twist/velocity: calculated from motor values only
-        s = tyre_circumference * (self.vel_l+self.vel_r) / (2.0*self.encoder_cpr)
-        w = tyre_circumference * (self.vel_r-self.vel_l) / (wheel_track * self.encoder_cpr) # angle: vel_r*tyre_radius - vel_l*tyre_radius
+        s = tyre_circumference*((self.vel_l+self.vel_r) / 2.0)
+        w = (self.vel_r-self.vel_l) / wheel_track # angle: vel_r*tyre_radius - vel_l*tyre_radius
         self.odom_msg.twist.twist.linear.x = s
         self.odom_msg.twist.twist.angular.z = w
 
@@ -279,7 +355,6 @@ class OdriveNode(Node):
         self.tf_msg.transform.rotation.w = q[3]
 
         # ... and publish!
-
         self.odom_publisher.publish(self.odom_msg)
         if self.publish_tf:
             self.tf_publisher.sendTransform(self.tf_msg)
