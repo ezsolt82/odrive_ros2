@@ -156,10 +156,12 @@ class OdriveNode(Node):
     def engage_driver(self):
         self.driver.engage()
         self.driver_engaged = True
+        self.get_logger().info("Motors engaged.")
 
     def disengage_driver(self):
         self.driver.release()
         self.driver_engaged = False
+        self.get_logger().info("Motors disengaged.")
 
     def cmd_vel_callback(self, msg):
         left_linear_val, right_linear_val = self.convert_linear_angular_to_l_r_linear(msg.linear.x, msg.angular.z)
@@ -213,16 +215,13 @@ class OdriveNode(Node):
         pass
 
     def disengage_on_stop(self):
-        if self.stopped_counter > 100:
-            return
-        if (self.last_left_linear_val == 0) and (self.last_right_linear_val == 0):
+        if (abs(self.last_left_linear_val) < 0.01) and (abs(self.last_right_linear_val) < 0.01):
             self.stopped_counter += 1
         else:
             self.stopped_counter = 0
 
         if self.stopped_counter == 100:
             self.disengage_driver()
-            self.get_logger().info("Motors disengaged.")
 
 
     def update_odometry(self, time_now):
