@@ -28,9 +28,9 @@ class OdriveNode(Node):
         self.last_left_linear_val = 0
         self.last_right_linear_val = 0
 
-        self.timer_recalc_odom = self.create_timer(1/self.odom_calc_hz, self.fast_timer)
-        self.timer_manage_hardware = self.create_timer(1, self.slow_timer)
-        self.vel_subscriber = self.create_subscription(Twist, "/cmd_vel", self.cmd_vel_callback, 10)
+        self.timer_recalc_odom                = self.create_timer(1/self.odom_calc_hz, self.fast_timer)
+        self.timer_manage_hardware            = self.create_timer(1, self.slow_timer)
+        self.vel_subscriber                   = self.create_subscription(Twist, "/cmd_vel", self.cmd_vel_callback, 10)
         self.raw_odom_publisher_encoder_left  = self.create_publisher(Float64, 'odrive/left/raw_odom/encoder'  , self.odom_calc_hz)
         self.raw_odom_publisher_encoder_right = self.create_publisher(Float64, 'odrive/right/raw_odom/encoder' , self.odom_calc_hz)
         self.raw_odom_publisher_vel_left      = self.create_publisher(Float64, 'odrive/left/raw_odom/velocity' , self.odom_calc_hz)
@@ -191,6 +191,7 @@ class OdriveNode(Node):
         self.shutdown()
 
     def shutdown(self):
+        self.disengage_driver()
         self.driver.release()
         self.driver.disconnect()
 
